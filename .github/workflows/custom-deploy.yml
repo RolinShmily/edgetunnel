@@ -1,0 +1,92 @@
+name: Custom Deploy
+
+# 手动部署：仓库 Actions 页面 -> 左侧选 Custom Deploy -> Run workflow
+# 使用个人配置 custom-worker/wrangler.toml（上游仓库无此路径，rebase 上游永不冲突）
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "要部署的 Git 引用（分支 / 标签 / commit），留空 = 触发时所在引用"
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "仅编译校验，不真正上传部署"
+        required: false
+        default: false
+        type: boolean
+
+# 部署只需要读仓库内容，不需要写权限
+permissions:
+  contents: read
+
+# 同一时间只跑一个部署，避免并发上传互相覆盖
+concurrency:
+  group: custom-deploy
+  cancel-in-progress: false
+
+env:
+  WRANGLER_SEND_METRICS: "false"      # 关闭 wrangler 遥测上报
+  CF_WRANGLER_CONFIG: custom-worker/wrangler.toml   # 不用 WRANGLER_* 前缀，避免与 wrangler 自身识别的环境变量撞名
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"          # wrangler 4.x 要求 Node >= 22
+
+      - name: Install Wrangler
+        # --ignore-scripts 阻止依赖执行生命周期脚本；部署（打包上传）不需要 workerd 二进制，因此安全
+        # 升级 wrangler 时改这里的版本号即可
+        run: npm install -g wrangler@4.135.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Check credentials
+        # 提前失败：Secret 未配置时给出明确报错，避免走到部署步骤才炸
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=""
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="CLOUDFLARE_API_TOKEN"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少仓库 Secret：$missing（Settings -> Secrets and variables -> Actions）"
+            exit 1
+          fi
+          echo "凭据已配置"
+
+      - name: Auth info
+        # 仅作信息展示：部分细粒度 token 调 whoami 会报权限不足，故不阻断流程
+        continue-on-error: true
+        run: wrangler whoami
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build check (dry run)
+        # 只编译打包、校验配置，不产生任何云端变更
+        run: wrangler deploy --dry-run --config "$CF_WRANGLER_CONFIG" --outdir "$RUNNER_TEMP/dry-run"
+
+      - name: Deploy
+        if: ${{ !inputs.dry_run }}
+        run: |
+          wrangler deploy \
+            --config "$CF_WRANGLER_CONFIG" \
+            --keep-vars \
+            --no-autoconfig \
+            --message "$DEPLOY_MESSAGE"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 通过 env 传递，避免把表达式直接拼进 shell 脚本导致注入
+          DEPLOY_MESSAGE: "manual deploy by ${{ github.actor }} @ ${{ github.sha }}"
