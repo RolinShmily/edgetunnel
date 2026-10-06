@@ -1,16 +1,16 @@
 # 个人专属 Cloudflare Worker 部署配置
 #
-# 为什么放在 custom-worker/ 里：
+# 为什么放在 .github/custom-worker/ 里：
 #   上游 cmliu/edgetunnel 不存在此路径，因此 git rebase / merge 上游时
 #   这个文件永远不会产生冲突，个人配置与上游代码彻底解耦。
-#   （放在子目录里让 wrangler 从仓库根目录运行时不会自动加载它，必须显式 --config）
+#   （Wrangler 不会自动搜索此目录，必须显式传入 --config）
 #
 # 等价命令（在仓库根目录执行）：
-#   npx wrangler deploy --config custom-worker/wrangler.toml
+#   npx wrangler deploy --config .github/custom-worker/wrangler.toml
 #   或手动触发 GitHub Actions：.github/workflows/custom-deploy.yml
 
 name = "web-surfing"                 # Worker 名称（决定 <name>.workers.dev 地址）
-main = "../_worker.js"               # 入口文件路径；相对「本文件所在目录」解析，故需 ../ 回到仓库根
+main = "../../_worker.js"            # 入口文件路径；相对本文件所在目录解析，需 ../../ 回到仓库根
 compatibility_date = "2025-11-04"    # Workers 运行时语义版本，随上游版本号同步更新即可
 
 # 顶部级键：部署时保留 Cloudflare 面板中设置的环境变量
