@@ -1,0 +1,17 @@
+# ET Worker 的专属部署配置
+# .github/workflows/custom-deploy.yml 固定使用此配置部署 ET。
+
+name = "ET"
+main = "../../_worker.js"
+compatibility_date = "2025-11-04"
+
+# 保留已有 Worker 的面板环境变量；首次创建时仍需单独配置变量。
+keep_vars = true
+
+# 不启用 <name>.workers.dev 域名，也不生成预览 URL。
+workers_dev = false
+preview_urls = false
+
+[[kv_namespaces]]
+binding = "KV"
+id = "c8e94cc15b564dbfaae3c2b694e22bac"

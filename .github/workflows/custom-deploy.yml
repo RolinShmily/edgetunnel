@@ -1,7 +1,7 @@
 name: Custom Deploy
 
 # 手动部署：仓库 Actions 页面 -> 左侧选 Custom Deploy -> Run workflow
-# 使用个人配置 .github/custom-worker/wrangler.toml（上游仓库无此路径，rebase 上游永不冲突）
+# 使用个人配置 .github/custom-worker/*.toml（上游仓库无此路径，rebase 上游永不冲突）
 on:
   workflow_dispatch:
     inputs:
@@ -27,7 +27,7 @@ concurrency:
 
 env:
   WRANGLER_SEND_METRICS: "false"      # 关闭 wrangler 遥测上报
-  CF_WRANGLER_CONFIG: .github/custom-worker/wrangler.toml   # 不用 WRANGLER_* 前缀，避免与 wrangler 自身识别的环境变量撞名
+  CF_WRANGLER_CONFIG: .github/custom-worker/wrangler-et.toml  # 不用 WRANGLER_* 前缀，避免与 Wrangler 自身变量冲突
 
 jobs:
   deploy:
