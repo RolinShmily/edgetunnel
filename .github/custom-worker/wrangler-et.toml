@@ -1,7 +1,7 @@
-# ET Worker 的专属部署配置
-# .github/workflows/custom-deploy.yml 固定使用此配置部署 ET。
+# cf-et Worker 的专属部署配置
+# .github/workflows/custom-deploy.yml 固定使用此配置部署 cf-et。
 
-name = "ET"
+name = "cf-et"
 main = "../../_worker.js"
 compatibility_date = "2025-11-04"
 
